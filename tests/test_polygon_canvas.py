@@ -1,13 +1,16 @@
-from typing import List, Tuple, Union
-from hypothesis import given, infer, strategies, assume
+from typing import List
 from math import isfinite
-from unittest.mock import MagicMock, patch
+from typing import List
+from unittest.mock import patch
+
 import ipycanvas
+from hypothesis import given, infer, assume, settings
 from ipyannotations.images.canvases import PolygonAnnotationCanvas
 from ipyannotations.images.canvases.shapes import Polygon, Point
 
 
 @given(data=infer)
+@settings(max_examples=30)
 def test_reading_and_setting_data(data: List[Polygon]):
 
     c = PolygonAnnotationCanvas()
@@ -20,12 +23,11 @@ def test_reading_and_setting_data(data: List[Polygon]):
 
     assert all(p1 == p2 for p1, p2 in zip(c.polygons, data))
 
-    print(c.data)
-    print("type" in serialised_data)
     assert c.data == serialised_data
 
 
 @given(point=infer, other_data=infer)
+@settings(max_examples=30)
 def test_click_handling(point: Point, other_data: List[Polygon]):
 
     point = point.coordinates
@@ -42,6 +44,7 @@ def test_click_handling(point: Point, other_data: List[Polygon]):
 
 
 @given(data=infer)
+@settings(max_examples=30)
 def test_drawing_invokes_canvas_line_to(data: List[Polygon]):
 
     canvas = PolygonAnnotationCanvas()
@@ -56,8 +59,8 @@ def test_drawing_invokes_canvas_line_to(data: List[Polygon]):
 
 
 @given(polygon=infer)
+@settings(max_examples=30)
 def test_closing_current_polygon(polygon: Polygon):
-
     canvas = PolygonAnnotationCanvas()
     canvas.current_polygon = polygon
 
@@ -75,9 +78,6 @@ def test_closing_current_polygon(polygon: Polygon):
 
     canvas.on_click(*closing_click)
 
-    print(poly_points)
-    print(closing_click)
-
     assert len(canvas.polygons) == 1
     assert canvas.polygons[0].points[:-1] == poly_points
     # test current polygon is reset
@@ -85,6 +85,7 @@ def test_closing_current_polygon(polygon: Polygon):
 
 
 @given(polygon=infer, polygons=infer)
+@settings(max_examples=30)
 def test_editing_mode(polygon: Polygon, polygons: List[Polygon]):
 
     assume(len(polygon) > 2)
@@ -124,6 +125,7 @@ def test_editing_mode(polygon: Polygon, polygons: List[Polygon]):
 
 
 @given(polygon=infer)
+@settings(max_examples=30)
 def test_dragging_without_edit_mode(polygon: Polygon):
 
     assume(len(polygon) > 4)

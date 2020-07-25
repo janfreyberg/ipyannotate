@@ -1,12 +1,14 @@
 import pathlib
 from typing import List, Callable, Any, Optional, Union, Type, Sequence
-import traitlets
+
 import ipywidgets as widgets
+import traitlets
 
 from .canvases._abstract import AbstractAnnotationCanvas
-from .canvases.polygon import PolygonAnnotationCanvas
-from .canvases.point import PointAnnotationCanvas
 from .canvases.box import BoundingBoxAnnotationCanvas
+from .canvases.point import PointAnnotationCanvas
+from .canvases.polygon import PolygonAnnotationCanvas
+from .zoom_utils import ZoomController
 
 
 class Annotator(widgets.VBox):
@@ -39,6 +41,7 @@ class Annotator(widgets.VBox):
     ):
         """Create an annotation widget for images."""
         self.canvas = self.CanvasClass(canvas_size, classes=options)
+
         self.data_postprocessor = data_postprocessor
 
         # controls for the data entry:
@@ -166,12 +169,26 @@ class Annotator(widgets.VBox):
             },
         )
 
+        self.zoomed_canvas = ZoomController(width=200, height=200)
+        widgets.link(
+            (self.zoomed_canvas, "zoom_scale"), (self.canvas, "zoom_scale")
+        )
+        widgets.link(
+            (self.zoomed_canvas.canvas, "x"), (self.canvas, "zoomed_image_x")
+        )
+        widgets.link(
+            (self.zoomed_canvas.canvas, "y"), (self.canvas, "zoomed_image_y")
+        )
+
         self.submit_callbacks: List[Callable[[Any], None]] = []
         self.undo_callbacks: List[Callable[[], None]] = []
         self.skip_callbacks: List[Callable[[], None]] = []
 
         super().__init__()
-        self.children = [self.canvas, self.all_controls]
+        self.children = [
+            self.all_controls,
+            widgets.HBox([self.canvas, self.zoomed_canvas]),
+        ]
 
     def display(self, image: Union[widgets.Image, pathlib.Path]):
         """Clear the annotations and display an image
@@ -184,6 +201,7 @@ class Annotator(widgets.VBox):
         """
         self.canvas.clear()
         self.canvas.load_image(image)
+        self.zoomed_canvas.load_image(self.canvas.current_image)
 
     def on_submit(self, callback: Callable[[Any], None]):
         """Register a callback to handle data when the user clicks "Submit".
@@ -279,6 +297,14 @@ class Annotator(widgets.VBox):
             return self.data_postprocessor(self.canvas.data)
         else:
             return self.canvas.data
+
+    def update_zoomed_image_crop(self, *change):
+        self.canvas.zoomed_image_x = int(
+            self.zoomed_canvas.x * self.canvas.zoomed_image.width
+        )
+        self.canvas.zoomed_image_y = int(
+            self.zoomed_canvas.y * self.canvas.zoomed_image.height
+        )
 
 
 class PolygonAnnotator(Annotator):

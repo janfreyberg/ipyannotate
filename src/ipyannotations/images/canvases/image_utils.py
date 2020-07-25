@@ -1,13 +1,13 @@
 import io
-import typing
 import pathlib
-from functools import singledispatch
-from dataclasses import dataclass
 import re
-from PIL import Image, ImageEnhance
-import numpy as np
-import ipywidgets as widgets
+from dataclasses import dataclass
+from functools import singledispatch
+from typing import Tuple, Any
 
+import ipywidgets as widgets
+import numpy as np
+from PIL import Image, ImageEnhance, ImageOps
 
 URL_REGEX = re.compile(
     r"^(http:\/\/www\.|https:\/\/www\.|http:\/\/|https:\/\/)?"
@@ -24,23 +24,45 @@ class URL:
         return bool(URL_REGEX.match(self.value))
 
 
-def adjust(
-    img: widgets.Image, contrast_factor: float, brightness_factor: float
-) -> widgets.Image:
-    # turn widgets.Image into Pillow Image
-    pil_image = Image.open(io.BytesIO(img.value))
-    # apply adjustments
-    pil_image = ImageEnhance.Contrast(pil_image).enhance(contrast_factor)
-    pil_image = ImageEnhance.Brightness(pil_image).enhance(brightness_factor)
-    # turn back into a widget
+def pil_to_widget(image: Image.Image) -> widgets.Image:
     buffer = io.BytesIO()
-    pil_image.save(buffer, "JPEG")
+    image.convert("RGB").save(buffer, "JPEG")
     buffer.seek(0)
     return widgets.Image(value=buffer.read(), format="jpg")
 
 
+def widget_to_pil(image: widgets.Image):
+    return Image.open(io.BytesIO(image.value))
+
+
+def fit_image(
+    img: Image.Image, size
+) -> Tuple[Image.Image, Tuple[int, int, int, int]]:
+    img_width, img_height = img.size
+    desired_width, desired_height = size
+
+    ratio = min(desired_width / img_width, desired_height / img_height)
+    img = ImageOps.scale(img, ratio)
+
+    width, height = img.size
+    x, y = ((desired_width - width) // 2, (desired_height - height) // 2)
+
+    border = (x, y, desired_width - x - width, desired_height - y - height)
+    img = ImageOps.expand(img, border=border, fill="white")
+
+    return img, (x, y, width, height)
+
+
+def adjust(
+    img: Image.Image, contrast_factor: float, brightness_factor: float
+) -> Image.Image:
+    img = ImageEnhance.Contrast(img).enhance(contrast_factor)
+    img = ImageEnhance.Brightness(img).enhance(brightness_factor)
+    return img
+
+
 @singledispatch
-def load_img(img: typing.Any):
+def load_img(img: Any):
     """
     Load an image, whether it's from a URL, a file, an array, or an already
     in-memory image.

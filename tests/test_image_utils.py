@@ -1,10 +1,11 @@
 import numpy as np
 import pytest
-import io
 from PIL import Image
 from unittest.mock import patch, MagicMock
 import ipywidgets
-from ipyannotations.images.canvases.image_utils import load_img, adjust
+from ipyannotations.images.canvases.image_utils import load_img, adjust, fit_image
+
+from src.ipyannotations.images.canvases.image_utils import widget_to_pil
 
 
 @pytest.fixture
@@ -76,12 +77,40 @@ def test_changing_brightness(image_array):
 
     img_widget = load_img(image_array)
     adjusted_widget = adjust(
-        img_widget, contrast_factor=1.0, brightness_factor=1.5
+        widget_to_pil(img_widget), contrast_factor=1.0, brightness_factor=1.5
     )
-    new_image_array = np.array(
-        Image.open(io.BytesIO(initial_bytes=adjusted_widget.value))
-    )
+    new_image_array = np.array(adjusted_widget)
 
     assert (new_image_array / image_array).mean() == pytest.approx(
         1.5, abs=1 / 256
     )
+
+
+def test_fit_image_to_smaller_size():
+    image = Image.new('RGB', size=(30, 40), color=(50, 50, 50))
+
+    new_image, (x, y, width, height) = fit_image(image, (10, 10))
+    new_image = np.array(new_image)
+
+    assert x == 1
+    assert y == 0
+    assert width == 8
+    assert height == 10
+    assert np.all(new_image[y:y + height, x:x + width] == 50)
+    new_image[y:y + height, x:x + width] = 255
+    assert np.all(new_image == 255)
+
+
+def test_fit_image_to_larger_size():
+    image = Image.new('RGB', size=(30, 40), color=(50, 50, 50))
+
+    new_image, (x, y, width, height) = fit_image(image, (45, 80))
+    new_image = np.array(new_image)
+
+    assert x == 0
+    assert y == 10
+    assert width == 45
+    assert height == 60
+    assert np.all(new_image[y:y + height, x:x + width] == 50)
+    new_image[y:y + height, x:x + width] = 255
+    assert np.all(new_image == 255)

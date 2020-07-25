@@ -1,3 +1,5 @@
+import copy
+
 from ipycanvas import hold_canvas
 from traitlets import Bool, observe
 
@@ -34,6 +36,11 @@ class BoundingBoxAnnotationCanvas(AbstractAnnotationCanvas):
                 self.draw_box(self._proposed_annotation, proposed=True)
 
     def draw_box(self, box: BoundingBox, proposed: bool = False):
+        box = copy.deepcopy(box)
+        box.xyxy = (  # type: ignore
+            *self.map_image_coords_to_canvas(*box.xyxy[:2]),  # type: ignore
+            *self.map_image_coords_to_canvas(*box.xyxy[2:]),  # type: ignore
+        )  # type: ignore
 
         color = self.colormap.get(box.label, "#000000")
         canvas = self[1]
@@ -56,7 +63,7 @@ class BoundingBoxAnnotationCanvas(AbstractAnnotationCanvas):
         if self.editing:
             canvas.fill_style = rgba_to_html_string(rgb + (1.0,))
             canvas.fill_arcs(
-                [x0, x0, x1, x1], [y0, y1, y0, y1], self.point_size, 0, 2 * pi
+                [x0, x0, x1, x1], [y0, y1, y0, y1], self.point_size, 0, 2 * pi,
             )
 
     @trigger_redraw
